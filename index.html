@@ -142,13 +142,66 @@
             transition: var(--transition);
         }
         
+        .admin-btn.admin-active {
+            background: linear-gradient(135deg, var(--success) 0%, #20c997 100%);
+        }
+        
         .admin-btn:hover {
             transform: translateY(-3px);
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         }
         
-        .admin-btn.admin-active {
-            background: linear-gradient(135deg, var(--success) 0%, #20c997 100%);
+        /* ============ BOTÕES DE AÇÃO NAS PROPRIEDADES ============ */
+        .property-card-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+        
+        .property-action-btn {
+            flex: 1;
+            padding: 6px 10px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.8em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        
+        .property-action-btn.select {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        
+        .property-action-btn.select:hover {
+            background: #bbdefb;
+        }
+        
+        .property-action-btn.remove {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+        
+        .property-action-btn.remove:hover {
+            background: #ffcdd2;
+        }
+        
+        /* Estilo para o botão de adicionar propriedade (sempre visível) */
+        .add-property-btn.always-visible {
+            display: flex !important;
+            background: linear-gradient(135deg, var(--secondary) 0%, #0d8a7d 100%);
+        }
+        
+        .add-property-btn.always-visible:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(17, 153, 142, 0.3);
         }
         
         /* ============ INDICADOR DE MODO ADMIN ============ */
@@ -1841,7 +1894,7 @@
                     <h3>Propriedades Disponíveis</h3>
                 </div>
                 
-                <button class="add-property-btn" onclick="addNewProperty()">
+                <button class="add-property-btn always-visible" onclick="addNewProperty()">
                     <i class="fas fa-plus"></i> Nova Propriedade
                 </button>
                 
@@ -1875,7 +1928,7 @@
                 <h3>Propriedades Disponíveis</h3>
             </div>
             
-            <button class="add-property-btn" onclick="addNewProperty()">
+            <button class="add-property-btn always-visible" onclick="addNewProperty()">
                 <i class="fas fa-plus"></i> Nova Propriedade
             </button>
             
@@ -2058,7 +2111,6 @@
             document.getElementById('adminBtn').classList.add('admin-active');
             
             document.getElementById('btnEdit').style.display = 'flex';
-            document.querySelector('.add-property-btn').style.display = 'flex';
             document.querySelector('.property-actions').style.display = 'flex';
             
             document.getElementById('adminBtn').innerHTML = `
@@ -2077,7 +2129,6 @@
             document.getElementById('adminBtn').classList.remove('admin-active');
             
             document.getElementById('btnEdit').style.display = 'none';
-            document.querySelector('.add-property-btn').style.display = 'none';
             document.querySelector('.property-actions').style.display = 'none';
             
             setMode('preview');
@@ -2234,7 +2285,7 @@
                 
                 return `
                 <div class="property-card ${prop.id === selectedPropertyId ? 'selected' : ''}" 
-                     onclick="selectProperty(${prop.id})">
+                     onclick="event.stopPropagation(); selectProperty(${prop.id})">
                     <div class="property-card-image">
                         <img src="${prop.images[0] || 'https://images.unsplash.com/photo-1518780664697-55e3ad937233?w=800&auto=format&fit=crop'}" 
                              alt="${prop.name}">
@@ -2275,6 +2326,16 @@
                                 ` : ''}
                             </div>
                         ` : ''}
+                        
+                        <!-- BOTÕES DE AÇÃO -->
+                        <div class="property-card-actions">
+                            <button class="property-action-btn select" onclick="event.stopPropagation(); selectProperty(${prop.id})">
+                                <i class="fas fa-eye"></i> Ver
+                            </button>
+                            <button class="property-action-btn remove" onclick="event.stopPropagation(); removePropertyFromList(${prop.id})">
+                                <i class="fas fa-trash"></i> Remover
+                            </button>
+                        </div>
                         
                         <div class="property-card-price">
                             R$ ${prop.price.toLocaleString('pt-BR')}
@@ -2413,10 +2474,11 @@
         
         // ============ FUNÇÕES DOS BOTÕES ============
         function addNewProperty() {
-            if (!isAdminMode) {
-                showNotification('🔒 Acesso restrito ao administrador', 'warning');
-                return;
-            }
+            // Remova a verificação de admin mode para que qualquer um possa adicionar
+            // if (!isAdminMode) {
+            //     showNotification('🔒 Acesso restrito ao administrador', 'warning');
+            //     return;
+            // }
             
             const newId = properties.length > 0 ? Math.max(...properties.map(p => p.id)) + 1 : 1;
             const newProperty = createSampleProperty(newId, 'Nova Propriedade', 'Digite a localização');
@@ -2427,10 +2489,62 @@
             properties.unshift(newProperty);
             saveProperties();
             selectProperty(newId);
-            setMode('edit');
-            isEditing = true;
             
-            showNotification('✨ Nova propriedade criada! Edite os detalhes.');
+            // Só entrar em modo edição se estiver em admin mode
+            if (isAdminMode) {
+                setMode('edit');
+                isEditing = true;
+            }
+            
+            showNotification('✨ Nova propriedade criada!');
+        }
+        
+        function removePropertyFromList(id) {
+            if (!confirm('Tem certeza que deseja remover esta propriedade da lista?')) return;
+            
+            const index = properties.findIndex(p => p.id == id);
+            if (index !== -1) {
+                // Se a propriedade sendo removida está selecionada, limpar seleção
+                if (selectedPropertyId == id) {
+                    selectedPropertyId = null;
+                }
+                
+                properties.splice(index, 1);
+                saveProperties();
+                
+                const isMobile = isMobileDevice();
+                renderPropertiesList(isMobile);
+                
+                if (selectedPropertyId === null) {
+                    if (isMobile) {
+                        updateMobileHeader(null);
+                        document.getElementById('contentBodyMobile').innerHTML = `
+                            <div class="empty-state">
+                                <i class="fas fa-home"></i>
+                                <h3>Nenhuma propriedade selecionada</h3>
+                                <p>Toque em uma propriedade na lista acima</p>
+                            </div>
+                        `;
+                    } else {
+                        document.getElementById('contentHeaderDesktop').innerHTML = `
+                            <h2>Selecione uma propriedade</h2>
+                            <p>Clique em uma propriedade na lista ao lado para ver os detalhes</p>
+                        `;
+                        document.getElementById('contentBodyDesktop').innerHTML = `
+                            <div class="empty-state">
+                                <i class="fas fa-home"></i>
+                                <h3>Nenhuma propriedade selecionada</h3>
+                                <p>Selecione uma propriedade na lista ao lado</p>
+                            </div>
+                        `;
+                    }
+                } else {
+                    // Se há outra propriedade selecionada, manter ela renderizada
+                    renderPropertyContent(isMobile);
+                }
+                
+                showNotification('🗑️ Propriedade removida da lista!');
+            }
         }
         
         function deleteProperty(id) {
